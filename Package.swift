@@ -1,5 +1,5 @@
 // swift-tools-version:5.3
-// PATCHED: Removed phlibwebp to avoid duplicate symbols with Kingfisher's libwebp
+// PATCHED: Use SDWebImage's libwebp instead of bundled phlibwebp to avoid duplicate symbols
 import PackageDescription
 
 let package = Package(
@@ -17,11 +17,17 @@ let package = Package(
         .package(url: "https://github.com/Quick/Quick.git", from: "6.0.0"),
         .package(url: "https://github.com/Quick/Nimble.git", from: "12.0.0"),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
+        // Use SDWebImage's libwebp (same one Kingfisher uses)
+        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.54.0"),
+        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.54.0"),
+        .package(url: "https://github.com/SDWebImage/libwebp-Xcode.git", from: "1.3.0"),
     ],
     targets: [
         .target(
             name: "PostHog",
-            dependencies: [],
+            dependencies: [
+                .product(name: "libwebp", package: "libwebp-Xcode")
+            ],
             path: "PostHog",
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy"),
