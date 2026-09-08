@@ -235,11 +235,20 @@ class PostHogQueue {
 
             let items = self.fileQueue.peek(count)
 
+            // A device that was offline for a long time can flush a backlog of stale snapshots.
+            // The ingester drops replay chunks older than the retention window, so skip them here.
+            let staleCutoff = self.endpoint == .snapshot ? Date().addingTimeInterval(-maxSnapshotAge) : nil
+
             var processing = [PostHogEvent]()
 
             for item in items {
                 // each element is a PostHogEvent if fromJSON succeeds
                 guard let event = PostHogEvent.fromJSON(item) else {
+                    continue
+                }
+                // Stale snapshots stay in `items` so they are popped from disk on success.
+                if let staleCutoff, event.timestamp < staleCutoff {
+                    hedgeLog("Dropping stale snapshot event '\(event.event)' from \(event.timestamp)")
                     continue
                 }
                 processing.append(event)

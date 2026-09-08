@@ -12,14 +12,14 @@ import Quick
 import XCTest
 
 class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, endpoint: PostHogQueue.PostHogApiEndpoint = .batch) -> PostHogQueue {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        return PostHogQueue(config, storage, api, .batch, nil)
+        return PostHogQueue(config, storage, api, endpoint, nil)
     }
 
     override func spec() {
@@ -89,6 +89,30 @@ class PostHogQueueTest: QuickSpec {
             let last = events.last!
             expect(first.event) == "event2"
             expect(last.event) == "event3"
+
+            sut.clear()
+        }
+
+        it("drops stale snapshot events before upload but keeps fresh ones") {
+            let sut = self.getSut(flushAt: 10, endpoint: .snapshot)
+
+            let staleTimestamp = Date().addingTimeInterval(-maxSnapshotAge - 60)
+            let stale = PostHogEvent(event: "$snapshot", distinctId: "distinctId", timestamp: staleTimestamp)
+            let fresh = PostHogEvent(event: "$snapshot", distinctId: "distinctId")
+            sut.add(stale)
+            sut.add(fresh)
+
+            expect(sut.depth) == 2
+
+            sut.flush()
+
+            let events = getSnapshotEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first?["sent_at"] as? String).toNot(beNil())
+
+            // both the fresh (sent) and the stale (dropped) events are removed from disk
+            expect(sut.depth).toEventually(equal(0))
 
             sut.clear()
         }

@@ -17,6 +17,9 @@ class MockPostHogServer {
     var flagsExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
     var flagsRequests = [URLRequest]()
+    var snapshotRequests = [URLRequest]()
+    var snapshotExpectation: XCTestExpectation?
+    var snapshotExpectationCount: Int?
     var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
@@ -24,6 +27,14 @@ class MockPostHogServer {
 
         if batchRequests.count >= (batchExpectationCount ?? 0) {
             batchExpectation?.fulfill()
+        }
+    }
+
+    func trackSnapshotRequest(_ request: URLRequest) {
+        snapshotRequests.append(request)
+
+        if snapshotRequests.count >= (snapshotExpectationCount ?? 0) {
+            snapshotExpectation?.fulfill()
         }
     }
 
@@ -330,12 +341,14 @@ class MockPostHogServer {
                 self.trackBatchRequest(request)
             } else if request.url?.lastPathComponent == "flags" {
                 self.trackFlags(request)
+            } else if request.url?.lastPathComponent == "s" {
+                self.trackSnapshotRequest(request)
             }
         }
     }
 
-    func start(batchCount: Int = 1) {
-        reset(batchCount: batchCount)
+    func start(batchCount: Int = 1, snapshotCount: Int = 1) {
+        reset(batchCount: batchCount, snapshotCount: snapshotCount)
 
         HTTPStubs.setEnabled(true)
     }
@@ -346,29 +359,28 @@ class MockPostHogServer {
         HTTPStubs.removeAllStubs()
     }
 
-    func reset(batchCount: Int = 1) {
+    func reset(batchCount: Int = 1, snapshotCount: Int = 1) {
         batchRequests = []
         flagsRequests = []
+        snapshotRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         flagsExpectation = XCTestExpectation(description: "1 flag requests to occur")
+        snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
         batchExpectationCount = batchCount
+        snapshotExpectationCount = snapshotCount
         errorsWhileComputingFlags = false
         return500 = false
     }
 
-    func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {
-        var unzippedData: Data?
-        do {
-            if gzip {
-                unzippedData = try context.body()!.gunzipped()
-            } else {
-                unzippedData = context.body()!
-            }
-        } catch {
-            // its ok
-        }
+    func bodyData(_ context: URLRequest, gzip: Bool = true) -> Data? {
+        guard let body = context.body() else { return nil }
+        if !gzip { return body }
+        return try? body.gunzipped()
+    }
 
-        return try? JSONSerialization.jsonObject(with: unzippedData!, options: []) as? [String: Any]
+    func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {
+        guard let unzippedData = bodyData(context, gzip: gzip) else { return nil }
+        return try? JSONSerialization.jsonObject(with: unzippedData, options: []) as? [String: Any]
     }
 
     func parsePostHogEvents(_ context: URLRequest) -> [PostHogEvent] {
@@ -385,5 +397,11 @@ class MockPostHogServer {
         }
 
         return events
+    }
+
+    // Snapshots are sent as a bare JSON array, so parse the raw event dictionaries directly.
+    func parseSnapshotBody(_ context: URLRequest) -> [[String: Any]] {
+        guard let unzippedData = bodyData(context) else { return [] }
+        return (try? JSONSerialization.jsonObject(with: unzippedData, options: []) as? [[String: Any]]) ?? []
     }
 }

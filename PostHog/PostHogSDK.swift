@@ -19,6 +19,9 @@ import Foundation
 
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
+// Replay retention window. Snapshot chunks older than this are dropped by the ingester
+// (message_timestamp_diff_too_large), so we drop them before upload rather than send them.
+let maxSnapshotAge: TimeInterval = 7 * 24 * 60 * 60
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {

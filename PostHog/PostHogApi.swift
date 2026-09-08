@@ -149,7 +149,14 @@ class PostHogApi {
 
         let request = getURLRequest(url)
 
-        let toSend = events.map { $0.toJSON() }
+        // The snapshot endpoint reads `sent_at` from the first event to offset-correct a
+        // skewed device clock, the same way the batch endpoint uses its top-level `sent_at`.
+        let sentAt = toISO8601String(Date())
+        let toSend = events.map { event -> [String: Any] in
+            var json = event.toJSON()
+            json["sent_at"] = sentAt
+            return json
+        }
 
         var data: Data?
 
