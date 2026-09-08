@@ -25,6 +25,21 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0,
     return events
 }
 
+func getSnapshotEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [[String: Any]] {
+    let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: timeout)
+
+    if result != XCTWaiter.Result.completed, failIfNotCompleted {
+        XCTFail("The expected snapshot requests never arrived")
+    }
+
+    var events: [[String: Any]] = []
+    for request in server.snapshotRequests.reversed() {
+        events.append(contentsOf: server.parseSnapshotBody(request))
+    }
+
+    return events
+}
+
 func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
 

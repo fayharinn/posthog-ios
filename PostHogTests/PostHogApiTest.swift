@@ -144,6 +144,19 @@ enum PostHogApiTests {
         func testHostWithPortNumberAndTrailingSlash() async throws {
             try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
+
+        @Test("snapshot body carries sent_at so the ingester can correct a skewed clock")
+        func snapshotBodyIncludesSentAt() async throws {
+            let sut = getSut(host: "http://localhost")
+            let event = PostHogEvent(event: "$snapshot", distinctId: "distinctId")
+            _ = await getApiResponse { completion in
+                sut.snapshot(events: [event], completion: completion)
+            }
+
+            let events = getSnapshotEvents(server)
+            #expect(events.count == 1)
+            #expect(events.first?["sent_at"] as? String != nil)
+        }
     }
 
     @Suite("Test flags endpoint with different host paths")
