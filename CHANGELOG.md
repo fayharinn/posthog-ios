@@ -1,5 +1,7 @@
 ## Next
 
+- fix: skip session replay screenshots while the system camera picker is open, to avoid a CameraUI layer crash
+
 ## 3.39.0 - 2026-02-03
 
 - feat: add `setPersonProperties` method to update person profile properties ([#441](https://github.com/PostHog/posthog-ios/pull/441))

@@ -621,7 +621,7 @@
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
-            if !window.isVisible() || isAnimatingTransition(window) {
+            if !window.isVisible() || isAnimatingTransition(window) || window.hasCameraForReplay() {
                 return nil
             }
 
