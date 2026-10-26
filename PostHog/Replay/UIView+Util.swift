@@ -38,7 +38,7 @@
         func toImage() -> UIImage? {
             // Avoid Rendering Offscreen Views
             let bounds = superview?.bounds ?? bounds
-            let size = bounds.intersection(bounds).size
+            let size = bounds.size
 
             if !size.hasSize() {
                 return nil
@@ -65,6 +65,27 @@
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason
         func toAbsoluteRect(_ window: UIWindow?) -> CGRect {
             convert(bounds, to: window)
+        }
+    }
+
+    extension UIWindow {
+        /// CameraUI layers can trap when Core Animation copies them during a snapshot.
+        /// Skip the frame before masking or rendering reads the camera's layer tree.
+        /// Call on main; inspecting controllers does not copy any layers.
+        func hasCameraForReplay() -> Bool {
+            func containsCamera(_ controller: UIViewController) -> Bool {
+                if let picker = controller as? UIImagePickerController,
+                   picker.sourceType == .camera,
+                   picker.viewIfLoaded?.window === self
+                {
+                    return true
+                }
+                if let presented = controller.presentedViewController, containsCamera(presented) {
+                    return true
+                }
+                return controller.children.contains(where: containsCamera)
+            }
+            return rootViewController.map(containsCamera) ?? false
         }
     }
 
